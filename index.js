@@ -19,10 +19,17 @@ class V2 {
   length() {
     return Math.sqrt(this.x * this.x + this.y * this.y);
   }
+
+  normalize() {
+    const n = this.length();
+    return new V2(this.x / n, this.y / n);
+  }
 }
 
 const radius = 69;
-const speed = 500;
+const speed = 750;
+const BULLET_RADIUS = 42;
+const BULLET_SPEED = 1500;
 
 const directionMap = new Map([
   ["KeyS", new V2(0, 1.0)],
@@ -69,13 +76,30 @@ class TutorialPopup {
   }
 }
 
+class Bullet {
+  constructor(pos, vel) {
+    this.pos = pos;
+    this.vel = vel;
+  }
+
+  update(dt) {
+    this.pos = this.pos.add(this.vel.scale(dt));
+  }
+
+  render(context) {
+    fillCircle(context, this.pos, BULLET_RADIUS, "red");
+  }
+}
+
 class Game {
   constructor() {
-    this.pos = new V2(radius + 10, radius + 10);
+    this.playerPos = new V2(radius + 10, radius + 10);
+    this.mousePos = new V2(0, 0);
     this.pressedKeys = new Set();
     this.popup = new TutorialPopup("WASD to move around");
     this.playerLearntHowToMove = false;
     this.popup.fadeIn();
+    this.bullets = new Set();
   }
 
   update(dt) {
@@ -91,8 +115,13 @@ class Game {
       this.popup.fadeOut();
     }
 
-    this.pos = this.pos.add(vel.scale(dt));
+    this.playerPos = this.playerPos.add(vel.scale(dt));
+
     this.popup.update(dt);
+
+    for (const bullet of this.bullets) {
+      bullet.update(dt);
+    }
   }
 
   render(context) {
@@ -100,9 +129,13 @@ class Game {
     const height = context.canvas.height;
 
     context.clearRect(0, 0, width, height);
-    fillCircle(context, this.pos, radius, "red");
+    fillCircle(context, this.playerPos, radius, "red");
 
     this.popup.render(context);
+
+    for (const bullet of this.bullets) {
+      bullet.render(context);
+    }
   }
 
   keyDown(event) {
@@ -111,6 +144,20 @@ class Game {
 
   keyUp(event) {
     this.pressedKeys.delete(event.code);
+  }
+
+  mouseMove(event) {
+    this.mousePos = new V2(event.screenX, event.screenY);
+  }
+
+  mouseDown(event) {
+    const mousePos = new V2(event.screenX, event.screenY);
+    const bulletVel = mousePos
+      .sub(this.playerPos)
+      .normalize()
+      .scale(BULLET_SPEED);
+
+    this.bullets.add(new Bullet(this.playerPos, bulletVel));
   }
 }
 
@@ -153,5 +200,11 @@ function fillCircle(context, center, radius, color = "green") {
   });
   document.addEventListener("keyup", (event) => {
     game.keyUp(event);
+  });
+  document.addEventListener("mousemove", (event) => {
+    game.mouseMove(event);
+  });
+  document.addEventListener("mousedown", (event) => {
+    game.mouseDown(event);
   });
 })();
