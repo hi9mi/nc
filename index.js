@@ -16,13 +16,17 @@ class V2 {
     return new V2(this.x * scaler, this.y * scaler);
   }
 
-  length() {
+  len() {
     return Math.sqrt(this.x * this.x + this.y * this.y);
   }
 
   normalize() {
-    const n = this.length();
+    const n = this.len();
     return new V2(this.x / n, this.y / n);
+  }
+
+  dist(that) {
+    return this.sub(that).len();
   }
 }
 
@@ -33,6 +37,9 @@ const TUTORIAL_POPUP_SPEED = 1.7;
 const BULLET_RADIUS = 42;
 const BULLET_SPEED = 1500;
 const BULLET_LIFETIME = 5.0;
+const ENEMY_SPEED = PLAYER_SPEED / 3;
+const ENEMY_RADIUS = PLAYER_RADIUS;
+const ENEMY_COLOR = "#9e95c7";
 
 const directionMap = new Map([
   ["KeyS", new V2(0, 1.0)],
@@ -40,6 +47,42 @@ const directionMap = new Map([
   ["KeyA", new V2(-1.0, 0)],
   ["KeyD", new V2(1.0, 0)],
 ]);
+
+class Enemy {
+  constructor(pos) {
+    this.pos = pos;
+    this.dead = false;
+  }
+
+  update(dt, followPos) {
+    const vel = followPos
+      .sub(this.pos)
+      .normalize()
+      .scale(ENEMY_SPEED * dt);
+    this.pos = this.pos.add(vel);
+  }
+
+  render(context) {
+    fillCircle(context, this.pos, ENEMY_RADIUS, ENEMY_COLOR);
+  }
+}
+
+class Bullet {
+  constructor(pos, vel) {
+    this.pos = pos;
+    this.vel = vel;
+    this.lifetime = BULLET_LIFETIME;
+  }
+
+  update(dt) {
+    this.pos = this.pos.add(this.vel.scale(dt));
+    this.lifetime -= dt;
+  }
+
+  render(context) {
+    fillCircle(context, this.pos, BULLET_RADIUS, PLAYER_COLOR);
+  }
+}
 
 class TutorialPopup {
   constructor(text) {
@@ -135,23 +178,6 @@ class Tutorial {
   }
 }
 
-class Bullet {
-  constructor(pos, vel) {
-    this.pos = pos;
-    this.vel = vel;
-    this.lifetime = BULLET_LIFETIME;
-  }
-
-  update(dt) {
-    this.pos = this.pos.add(this.vel.scale(dt));
-    this.lifetime -= dt;
-  }
-
-  render(context) {
-    fillCircle(context, this.pos, BULLET_RADIUS, PLAYER_COLOR);
-  }
-}
-
 class Game {
   constructor() {
     this.playerPos = new V2(PLAYER_RADIUS + 10, PLAYER_RADIUS + 10);
@@ -159,6 +185,9 @@ class Game {
     this.pressedKeys = new Set();
     this.tutorial = new Tutorial();
     this.bullets = [];
+    this.enemies = [];
+
+    this.enemies.push(new Enemy(new V2(800, 600)));
   }
 
   update(dt) {
@@ -179,11 +208,24 @@ class Game {
 
     this.tutorial.update(dt);
 
+    for (const enemy of this.enemies) {
+      for (const bullet of this.bullets) {
+        if (enemy.pos.dist(bullet.pos) <= BULLET_RADIUS + ENEMY_RADIUS) {
+          enemy.dead = true;
+          bullet.lifetime = 0.0;
+        }
+      }
+    }
+
     for (const bullet of this.bullets) {
       bullet.update(dt);
     }
-
     this.bullets = this.bullets.filter((bullet) => bullet.lifetime > 0.0);
+
+    for (const enemy of this.enemies) {
+      enemy.update(dt, this.playerPos);
+    }
+    this.enemies = this.enemies.filter((enemy) => !enemy.dead);
   }
 
   render(context) {
@@ -193,11 +235,15 @@ class Game {
     context.clearRect(0, 0, width, height);
     fillCircle(context, this.playerPos, PLAYER_RADIUS, PLAYER_COLOR);
 
-    this.tutorial.render(context);
-
     for (const bullet of this.bullets) {
       bullet.render(context);
     }
+
+    for (const enemy of this.enemies) {
+      enemy.render(context);
+    }
+
+    this.tutorial.render(context);
   }
 
   keyDown(event) {
