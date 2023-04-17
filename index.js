@@ -30,6 +30,7 @@ const radius = 69;
 const speed = 750;
 const BULLET_RADIUS = 42;
 const BULLET_SPEED = 1500;
+const BULLET_LIFETIME = 5.0;
 
 const directionMap = new Map([
   ["KeyS", new V2(0, 1.0)],
@@ -80,10 +81,12 @@ class Bullet {
   constructor(pos, vel) {
     this.pos = pos;
     this.vel = vel;
+    this.lifetime = BULLET_LIFETIME;
   }
 
   update(dt) {
     this.pos = this.pos.add(this.vel.scale(dt));
+    this.lifetime -= dt;
   }
 
   render(context) {
@@ -99,7 +102,7 @@ class Game {
     this.popup = new TutorialPopup("WASD to move around");
     this.playerLearntHowToMove = false;
     this.popup.fadeIn();
-    this.bullets = new Set();
+    this.bullets = [];
   }
 
   update(dt) {
@@ -122,6 +125,8 @@ class Game {
     for (const bullet of this.bullets) {
       bullet.update(dt);
     }
+
+    this.bullets = this.bullets.filter((bullet) => bullet.lifetime > 0.0);
   }
 
   render(context) {
@@ -157,7 +162,7 @@ class Game {
       .normalize()
       .scale(BULLET_SPEED);
 
-    this.bullets.add(new Bullet(this.playerPos, bulletVel));
+    this.bullets.push(new Bullet(this.playerPos, bulletVel));
   }
 }
 
