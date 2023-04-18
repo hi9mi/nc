@@ -1,3 +1,42 @@
+class Color {
+  constructor(r, g, b, a = 1) {
+    this.r = r;
+    this.g = g;
+    this.b = b;
+    this.a = a;
+  }
+
+  toString() {
+    return `rgba(${this.r * 255},${this.g * 255},${this.b * 255}, ${this.a})`;
+  }
+
+  grayScale() {
+    const x = Math.max(this.r, this.g, this.b);
+
+    return new Color(x, x, x, this.a);
+  }
+
+  withAlpha(a) {
+    return new Color(this.r, this.g, this.b, a);
+  }
+
+  static hex(hexcolor) {
+    const matches = hexcolor.match(/#([0-9a-z]{2})([0-9a-z]{2})([0-9a-z]{2})/i);
+
+    if (matches) {
+      const [, r, g, b] = matches;
+
+      return new Color(
+        parseInt(r, 16) / 255,
+        parseInt(g, 16) / 255,
+        parseInt(b, 16) / 255
+      );
+    } else {
+      throw new Error(`Invalid hex color: ${hexcolor}`);
+    }
+  }
+}
+
 class V2 {
   constructor(x, y) {
     this.x = x;
@@ -34,7 +73,7 @@ class V2 {
   }
 }
 
-const PLAYER_COLOR = "#f43841";
+const PLAYER_COLOR = Color.hex("#f43841");
 const PLAYER_RADIUS = 69;
 const PLAYER_SPEED = 750;
 const TUTORIAL_POPUP_SPEED = 1.7;
@@ -43,7 +82,7 @@ const BULLET_SPEED = 1500;
 const BULLET_LIFETIME = 5.0;
 const ENEMY_SPEED = PLAYER_SPEED / 3;
 const ENEMY_RADIUS = PLAYER_RADIUS;
-const ENEMY_COLOR = "#9e95c7";
+const ENEMY_COLOR = Color.hex("#9e95c7");
 const ENEMY_SPAWN_COOLDOWN = 1.0;
 const ENEMY_SPAWN_DISTANCE = 1500.0;
 const PARTICLES_COUNT = 50;
@@ -74,7 +113,7 @@ class Particle {
 
   render(context) {
     const a = this.lifetime / PARTICLE_LIFETIME;
-    fillCircle(context, this.pos, this.radius, `rgba(158, 149, 199, ${a})`);
+    fillCircle(context, this.pos, this.radius, PARTICLE_COLOR.withAlpha(a));
   }
 }
 
@@ -225,19 +264,22 @@ function renderEntities(context, entities) {
 }
 
 class Game {
-  constructor() {
-    this.playerPos = new V2(PLAYER_RADIUS + 10, PLAYER_RADIUS + 10);
-    this.mousePos = new V2(0, 0);
-    this.pressedKeys = new Set();
-    this.tutorial = new Tutorial();
-    this.bullets = [];
-    this.enemies = [];
-    this.particles = [];
-    this.enemySpawnRate = ENEMY_SPAWN_COOLDOWN;
-    this.enemySpawnCooldown = this.enemySpawnRate;
-  }
+  playerPos = new V2(PLAYER_RADIUS + 10, PLAYER_RADIUS + 10);
+  mousePos = new V2(0, 0);
+  pressedKeys = new Set();
+  tutorial = new Tutorial();
+  bullets = [];
+  enemies = [];
+  particles = [];
+  enemySpawnRate = ENEMY_SPAWN_COOLDOWN;
+  enemySpawnCooldown = this.enemySpawnRate;
+  paused = false;
 
   update(dt) {
+    if (this.paused) {
+      return;
+    }
+
     let vel = new V2(0, 0);
     let moved = false;
     for (const key of this.pressedKeys) {
@@ -317,7 +359,15 @@ class Game {
     );
   }
 
+  togglePause() {
+    this.paused = !this.paused;
+  }
+
   keyDown(event) {
+    if (event.code === "Space") {
+      this.togglePause();
+    }
+
     this.pressedKeys.add(event.code);
   }
 
@@ -340,10 +390,10 @@ class Game {
   }
 }
 
-function fillCircle(context, center, radius, color = "green") {
+function fillCircle(context, center, radius, color) {
   context.beginPath();
   context.arc(center.x, center.y, radius, 0, 2 * Math.PI, false);
-  context.fillStyle = color;
+  context.fillStyle = color.toString();
   context.fill();
 }
 
