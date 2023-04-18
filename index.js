@@ -330,12 +330,13 @@ class Game {
   mouseDown(event) {
     this.tutorial.playerShot();
     const mousePos = new V2(event.offsetX, event.offsetY);
-    const bulletVel = mousePos
-      .sub(this.playerPos)
-      .normalize()
-      .scale(BULLET_SPEED);
+    const bulletDir = mousePos.sub(this.playerPos).normalize();
+    const bulletVel = bulletDir.scale(BULLET_SPEED);
+    const bulletPos = this.playerPos.add(
+      bulletDir.scale(PLAYER_RADIUS + BULLET_RADIUS)
+    );
 
-    this.bullets.push(new Bullet(this.playerPos, bulletVel));
+    this.bullets.push(new Bullet(bulletPos, bulletVel));
   }
 }
 
