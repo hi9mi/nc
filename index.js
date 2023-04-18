@@ -28,10 +28,10 @@ class V2 {
   dist(that) {
     return this.sub(that).len();
   }
-}
 
-function polarV2(mag, dir) {
-  return new V2(Math.cos(dir) * mag, Math.sin(dir) * mag);
+  static polar(mag, dir) {
+    return new V2(Math.cos(dir) * mag, Math.sin(dir) * mag);
+  }
 }
 
 const PLAYER_COLOR = "#f43841";
@@ -84,7 +84,7 @@ function particleBurst(particles, center) {
     particles.push(
       new Particle(
         center,
-        polarV2(Math.random() * PARTICLE_MAG, Math.random() * 2 * Math.PI),
+        V2.polar(Math.random() * PARTICLE_MAG, Math.random() * 2 * Math.PI),
         Math.random() * PARTICLE_LIFETIME,
         Math.random() * PARTICLE_RADIUS + 10.0
       )
@@ -144,16 +144,12 @@ class TutorialPopup {
       this.dalpha = 0.0;
       this.alpha = 0.0;
 
-      if (this.onFadedOut !== undefined) {
-        this.onFadedOut();
-      }
+      this.onFadedOut?.();
     } else if (this.dalpha > 0.0 && this.alpha >= 1.0) {
       this.dalpha = 0.0;
       this.alpha = 1.0;
 
-      if (this.onFadedIn !== undefined) {
-        this.onFadedIn();
-      }
+      this.onFadedIn?.();
     }
   }
 
@@ -317,7 +313,7 @@ class Game {
     const dir = Math.random() * 2 * Math.PI;
 
     this.enemies.push(
-      new Enemy(this.playerPos.add(polarV2(ENEMY_SPAWN_DISTANCE, dir)))
+      new Enemy(this.playerPos.add(V2.polar(ENEMY_SPAWN_DISTANCE, dir)))
     );
   }
 
@@ -357,6 +353,7 @@ function fillCircle(context, center, radius, color = "green") {
   const game = new Game();
 
   let start;
+  let windowWasResize = true;
 
   function step(timestamp) {
     if (start === undefined) {
@@ -365,10 +362,11 @@ function fillCircle(context, center, radius, color = "green") {
     const dt = (timestamp - start) * 0.001;
     start = timestamp;
 
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    canvas.width = width;
-    canvas.height = height;
+    if (windowWasResize) {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      windowWasResize = false;
+    }
 
     game.update(dt);
     game.render(context);
@@ -388,5 +386,8 @@ function fillCircle(context, center, radius, color = "green") {
   });
   document.addEventListener("mousedown", (event) => {
     game.mouseDown(event);
+  });
+  document.addEventListener("resize", (event) => {
+    windowWasResize = true;
   });
 })();
