@@ -11,7 +11,7 @@ class Color {
   }
 
   grayScale() {
-    const x = Math.max(this.r, this.g, this.b);
+    const x = (this.r + this.g + this.b) / 3;
 
     return new Color(x, x, x, this.a);
   }
@@ -90,6 +90,7 @@ const PARTICLE_RADIUS = 10.0;
 const PARTICLE_COLOR = ENEMY_COLOR;
 const PARTICLE_MAG = BULLET_SPEED;
 const PARTICLE_LIFETIME = 1.0;
+const MESSAGE_COLOR = Color.hex("#ffffff");
 
 const directionMap = new Map([
   ["KeyS", new V2(0, 1.0)],
@@ -167,6 +168,16 @@ class Bullet {
   }
 }
 
+function fillMessage(context, text, color) {
+  const width = context.canvas.width;
+  const height = context.canvas.height;
+
+  context.fillStyle = color.toString();
+  context.font = "30px Lexend Mega";
+  context.textAlign = "center";
+  context.fillText(text, width / 2, height / 2);
+}
+
 class TutorialPopup {
   constructor(text) {
     this.alpha = 0.0;
@@ -193,13 +204,7 @@ class TutorialPopup {
   }
 
   render(context) {
-    const width = context.canvas.width;
-    const height = context.canvas.height;
-
-    context.fillStyle = `rgba(255, 255, 255, ${this.alpha})`;
-    context.font = "30px Lexend Mega";
-    context.textAlign = "center";
-    context.fillText(this.text, width / 2, height / 2);
+    fillMessage(context, this.text, MESSAGE_COLOR.withAlpha(this.alpha));
   }
 
   fadeIn() {
@@ -348,7 +353,15 @@ class Game {
     renderEntities(context, this.particles);
     renderEntities(context, this.enemies);
 
-    this.tutorial.render(context);
+    if (!this.paused) {
+      this.tutorial.render(context);
+    } else {
+      fillMessage(
+        context,
+        "GAME IS PAUSED (press SPACE to resume)",
+        MESSAGE_COLOR
+      );
+    }
   }
 
   spawnEnemy() {
@@ -361,6 +374,11 @@ class Game {
 
   togglePause() {
     this.paused = !this.paused;
+    if (this.paused) {
+      globalFillCircleFilter = grayScaleFilter;
+    } else {
+      globalFillCircleFilter = idFilter;
+    }
   }
 
   keyDown(event) {
@@ -378,6 +396,10 @@ class Game {
   mouseMove(event) {}
 
   mouseDown(event) {
+    if (this.paused) {
+      return;
+    }
+
     this.tutorial.playerShot();
     const mousePos = new V2(event.offsetX, event.offsetY);
     const bulletDir = mousePos.sub(this.playerPos).normalize();
@@ -390,10 +412,21 @@ class Game {
   }
 }
 
+function grayScaleFilter(color) {
+  return color.grayScale();
+}
+
+function idFilter(color) {
+  return color;
+}
+
+let globalFillCircleFilter = idFilter;
+
 function fillCircle(context, center, radius, color) {
   context.beginPath();
   context.arc(center.x, center.y, radius, 0, 2 * Math.PI, false);
-  context.fillStyle = color.toString();
+  context.fillStyle = globalFillCircleFilter(color).toString();
+
   context.fill();
 }
 
