@@ -268,8 +268,32 @@ function renderEntities(context, entities) {
   }
 }
 
+class Player {
+  constructor(pos) {
+    this.pos = pos;
+  }
+
+  render(context) {
+    fillCircle(context, this.pos, PLAYER_RADIUS, PLAYER_COLOR);
+  }
+
+  update(dt, vel) {
+    this.pos = this.pos.add(vel.scale(dt));
+  }
+
+  shootAt(target) {
+    const bulletDir = target.sub(this.pos).normalize();
+    const bulletVel = bulletDir.scale(BULLET_SPEED);
+    const bulletPos = this.pos.add(
+      bulletDir.scale(PLAYER_RADIUS + BULLET_RADIUS)
+    );
+
+    return new Bullet(bulletPos, bulletVel);
+  }
+}
+
 class Game {
-  playerPos = new V2(PLAYER_RADIUS + 10, PLAYER_RADIUS + 10);
+  player = new Player(new V2(PLAYER_RADIUS + 10, PLAYER_RADIUS + 10));
   mousePos = new V2(0, 0);
   pressedKeys = new Set();
   tutorial = new Tutorial();
@@ -298,7 +322,7 @@ class Game {
       this.tutorial.playerMoved();
     }
 
-    this.playerPos = this.playerPos.add(vel.scale(dt));
+    this.player.update(dt, vel);
 
     this.tutorial.update(dt);
 
@@ -328,7 +352,7 @@ class Game {
     );
 
     for (const enemy of this.enemies) {
-      enemy.update(dt, this.playerPos);
+      enemy.update(dt, this.player.pos);
     }
     this.enemies = this.enemies.filter((enemy) => !enemy.dead);
 
@@ -347,8 +371,8 @@ class Game {
     const height = context.canvas.height;
 
     context.clearRect(0, 0, width, height);
-    fillCircle(context, this.playerPos, PLAYER_RADIUS, PLAYER_COLOR);
 
+    this.player.render(context);
     renderEntities(context, this.bullets);
     renderEntities(context, this.particles);
     renderEntities(context, this.enemies);
@@ -368,7 +392,7 @@ class Game {
     const dir = Math.random() * 2 * Math.PI;
 
     this.enemies.push(
-      new Enemy(this.playerPos.add(V2.polar(ENEMY_SPAWN_DISTANCE, dir)))
+      new Enemy(this.player.pos.add(V2.polar(ENEMY_SPAWN_DISTANCE, dir)))
     );
   }
 
@@ -402,13 +426,7 @@ class Game {
 
     this.tutorial.playerShot();
     const mousePos = new V2(event.offsetX, event.offsetY);
-    const bulletDir = mousePos.sub(this.playerPos).normalize();
-    const bulletVel = bulletDir.scale(BULLET_SPEED);
-    const bulletPos = this.playerPos.add(
-      bulletDir.scale(PLAYER_RADIUS + BULLET_RADIUS)
-    );
-
-    this.bullets.push(new Bullet(bulletPos, bulletVel));
+    this.bullets.push(this.player.shootAt(mousePos));
   }
 }
 
