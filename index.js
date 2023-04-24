@@ -1,3 +1,7 @@
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
 class Color {
   constructor(r, g, b, a = 1) {
     this.r = r;
@@ -10,14 +14,23 @@ class Color {
     return `rgba(${this.r * 255},${this.g * 255},${this.b * 255}, ${this.a})`;
   }
 
-  grayScale() {
+  grayScale(t = 1.0) {
     const x = (this.r + this.g + this.b) / 3;
 
-    return new Color(x, x, x, this.a);
+    return new Color(
+      lerp(this.r, x, t),
+      lerp(this.g, x, t),
+      lerp(this.b, x, t),
+      this.a
+    );
   }
 
   withAlpha(a) {
     return new Color(this.r, this.g, this.b, a);
+  }
+
+  invert() {
+    return new Color(1.0 - this.r, 1.0 - this.g, 1.0 - this.b, this.a);
   }
 
   static hex(hexcolor) {
@@ -73,9 +86,73 @@ class V2 {
   }
 }
 
+let grayness = 0.0;
+
+function fillCircle(context, center, radius, color) {
+  context.fillStyle = color.grayScale(grayness).toString();
+  context.beginPath();
+  context.arc(center.x, center.y, radius, 0, 2 * Math.PI, false);
+
+  context.fill();
+}
+
+function fillRect(context, x, y, w, h, color) {
+  context.fillStyle = color.grayScale(grayness).toString();
+  context.fillRect(x, y, w, h);
+}
+
+function fillMessage(
+  context,
+  text,
+  color,
+  maxWidth = context.canvas.width / 2,
+  lineHeight = 50
+) {
+  const width = context.canvas.width;
+  const height = context.canvas.height;
+
+  context.fillStyle = color.toString();
+  context.font = "30px Lexend Mega";
+  context.textAlign = "center";
+
+  let words = text.split(" ");
+  let line = "";
+  let testLine = "";
+  let lineArray = [];
+  let x = width / 2;
+  let y = height / 2;
+
+  for (let n = 0; n < words.length; n++) {
+    testLine += `${words[n]} `;
+    let metrics = context.measureText(testLine);
+    let testWidth = metrics.width;
+
+    if (testWidth > maxWidth && n > 0) {
+      lineArray.push([line, x, y]);
+
+      y += lineHeight;
+
+      line = `${words[n]} `;
+      testLine = `${words[n]} `;
+    } else {
+      line += `${words[n]} `;
+    }
+    if (n === words.length - 1) {
+      lineArray.push([line, x, y]);
+    }
+  }
+
+  lineArray.forEach(([text, x, y]) => {
+    context.fillText(text, x, y);
+  });
+}
+
 const PLAYER_COLOR = Color.hex("#f43841");
 const PLAYER_RADIUS = 69;
 const PLAYER_SPEED = 750;
+const PLAYER_MAX_HP = 100;
+const HP_BAR_HEIGHT = 7;
+const LIFE_STEAL = PLAYER_MAX_HP / 10;
 const TUTORIAL_POPUP_SPEED = 1.7;
 const BULLET_RADIUS = 42;
 const BULLET_SPEED = 1500;
@@ -85,9 +162,9 @@ const ENEMY_RADIUS = PLAYER_RADIUS;
 const ENEMY_COLOR = Color.hex("#9e95c7");
 const ENEMY_SPAWN_COOLDOWN = 1.0;
 const ENEMY_SPAWN_DISTANCE = 1500.0;
+const ENEMY_DAMAGE = PLAYER_MAX_HP / 5;
 const PARTICLES_COUNT = 50;
 const PARTICLE_RADIUS = 10.0;
-const PARTICLE_COLOR = ENEMY_COLOR;
 const PARTICLE_MAG = BULLET_SPEED;
 const PARTICLE_LIFETIME = 1.0;
 const MESSAGE_COLOR = Color.hex("#ffffff");
@@ -100,11 +177,12 @@ const directionMap = new Map([
 ]);
 
 class Particle {
-  constructor(pos, vel, lifetime, radius) {
+  constructor(pos, vel, lifetime, radius, color) {
     this.pos = pos;
     this.vel = vel;
     this.lifetime = lifetime;
     this.radius = radius;
+    this.color = color;
   }
 
   update(dt) {
@@ -114,11 +192,11 @@ class Particle {
 
   render(context) {
     const a = this.lifetime / PARTICLE_LIFETIME;
-    fillCircle(context, this.pos, this.radius, PARTICLE_COLOR.withAlpha(a));
+    fillCircle(context, this.pos, this.radius, this.color.withAlpha(a));
   }
 }
 
-function particleBurst(particles, center) {
+function particleBurst(particles, center, color) {
   const N = Math.random() * PARTICLES_COUNT;
   for (let i = 0; i < N; i++) {
     particles.push(
@@ -126,7 +204,8 @@ function particleBurst(particles, center) {
         center,
         V2.polar(Math.random() * PARTICLE_MAG, Math.random() * 2 * Math.PI),
         Math.random() * PARTICLE_LIFETIME,
-        Math.random() * PARTICLE_RADIUS + 10.0
+        Math.random() * PARTICLE_RADIUS + 10.0,
+        color
       )
     );
   }
@@ -166,16 +245,6 @@ class Bullet {
   render(context) {
     fillCircle(context, this.pos, BULLET_RADIUS, PLAYER_COLOR);
   }
-}
-
-function fillMessage(context, text, color) {
-  const width = context.canvas.width;
-  const height = context.canvas.height;
-
-  context.fillStyle = color.toString();
-  context.font = "30px Lexend Mega";
-  context.textAlign = "center";
-  context.fillText(text, width / 2, height / 2);
 }
 
 class TutorialPopup {
@@ -269,12 +338,16 @@ function renderEntities(context, entities) {
 }
 
 class Player {
+  hp = PLAYER_MAX_HP;
+
   constructor(pos) {
     this.pos = pos;
   }
 
   render(context) {
-    fillCircle(context, this.pos, PLAYER_RADIUS, PLAYER_COLOR);
+    if (this.hp > 0.0) {
+      fillCircle(context, this.pos, PLAYER_RADIUS, PLAYER_COLOR);
+    }
   }
 
   update(dt, vel) {
@@ -289,6 +362,14 @@ class Player {
     );
 
     return new Bullet(bulletPos, bulletVel);
+  }
+
+  damage(value) {
+    this.hp = Math.max(this.hp - value, 0.0);
+  }
+
+  heal(value) {
+    this.hp = Math.min(this.hp + value, PLAYER_MAX_HP);
   }
 }
 
@@ -306,7 +387,14 @@ class Game {
 
   update(dt) {
     if (this.paused) {
+      grayness = 1.0;
       return;
+    } else {
+      grayness = 1.0 - this.player.hp / PLAYER_MAX_HP;
+    }
+
+    if (this.player.hp <= 0.0) {
+      dt /= 50;
     }
 
     let vel = new V2(0, 0);
@@ -327,14 +415,23 @@ class Game {
     this.tutorial.update(dt);
 
     for (const enemy of this.enemies) {
-      for (const bullet of this.bullets) {
+      if (!enemy.dead) {
+        for (const bullet of this.bullets) {
+          if (enemy.pos.dist(bullet.pos) <= BULLET_RADIUS + ENEMY_RADIUS) {
+            this.player.heal(LIFE_STEAL);
+            enemy.dead = true;
+            bullet.lifetime = 0.0;
+            particleBurst(this.particles, enemy.pos, ENEMY_COLOR);
+          }
+        }
+
         if (
-          !enemy.dead &&
-          enemy.pos.dist(bullet.pos) <= BULLET_RADIUS + ENEMY_RADIUS
+          this.player.hp > 0.0 &&
+          enemy.pos.dist(this.player.pos) <= PLAYER_RADIUS + ENEMY_RADIUS
         ) {
+          this.player.damage(ENEMY_DAMAGE);
           enemy.dead = true;
-          bullet.lifetime = 0.0;
-          particleBurst(this.particles, enemy.pos);
+          particleBurst(this.particles, enemy.pos, PLAYER_COLOR);
         }
       }
     }
@@ -369,7 +466,6 @@ class Game {
   render(context) {
     const width = context.canvas.width;
     const height = context.canvas.height;
-
     context.clearRect(0, 0, width, height);
 
     this.player.render(context);
@@ -377,15 +473,30 @@ class Game {
     renderEntities(context, this.particles);
     renderEntities(context, this.enemies);
 
-    if (!this.paused) {
-      this.tutorial.render(context);
-    } else {
+    if (this.paused) {
       fillMessage(
         context,
-        "GAME IS PAUSED (press SPACE to resume)",
+        "GAME IS PAUSED (press SPACE to resume game)",
         MESSAGE_COLOR
       );
+    } else if (this.player.hp <= 0.0) {
+      fillMessage(
+        context,
+        "YOU DIED (refresh the page to restart game)",
+        MESSAGE_COLOR
+      );
+    } else {
+      this.tutorial.render(context);
     }
+
+    fillRect(
+      context,
+      0,
+      height - HP_BAR_HEIGHT,
+      width * (this.player.hp / PLAYER_MAX_HP),
+      HP_BAR_HEIGHT,
+      PLAYER_COLOR
+    );
   }
 
   spawnEnemy() {
@@ -398,14 +509,13 @@ class Game {
 
   togglePause() {
     this.paused = !this.paused;
-    if (this.paused) {
-      globalFillCircleFilter = grayScaleFilter;
-    } else {
-      globalFillCircleFilter = idFilter;
-    }
   }
 
   keyDown(event) {
+    if (this.player.hp <= 0.0) {
+      return;
+    }
+
     if (event.code === "Space") {
       this.togglePause();
     }
@@ -420,7 +530,7 @@ class Game {
   mouseMove(event) {}
 
   mouseDown(event) {
-    if (this.paused) {
+    if (this.paused || this.player.hp <= 0.0) {
       return;
     }
 
@@ -428,24 +538,6 @@ class Game {
     const mousePos = new V2(event.offsetX, event.offsetY);
     this.bullets.push(this.player.shootAt(mousePos));
   }
-}
-
-function grayScaleFilter(color) {
-  return color.grayScale();
-}
-
-function idFilter(color) {
-  return color;
-}
-
-let globalFillCircleFilter = idFilter;
-
-function fillCircle(context, center, radius, color) {
-  context.beginPath();
-  context.arc(center.x, center.y, radius, 0, 2 * Math.PI, false);
-  context.fillStyle = globalFillCircleFilter(color).toString();
-
-  context.fill();
 }
 
 const game = new Game();
@@ -465,8 +557,8 @@ const game = new Game();
     start = timestamp;
 
     if (windowWasResize) {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      canvas.width = document.documentElement.clientWidth;
+      canvas.height = document.documentElement.clientHeight;
       windowWasResize = false;
     }
 
@@ -489,7 +581,7 @@ const game = new Game();
   document.addEventListener("mousedown", (event) => {
     game.mouseDown(event);
   });
-  document.addEventListener("resize", (event) => {
+  window.addEventListener("resize", (event) => {
     windowWasResize = true;
   });
 })();
