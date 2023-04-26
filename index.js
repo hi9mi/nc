@@ -105,22 +105,24 @@ function fillMessage(
   context,
   text,
   color,
-  maxWidth = context.canvas.width / 2,
-  lineHeight = 50
+  params = {
+    x: context.canvas.width / 2,
+    y: context.canvas.height / 2,
+    maxWidth: context.canvas.width / 2,
+    lineHeight: 50,
+    fontSize: 30,
+    textAlign: "center",
+  }
 ) {
-  const width = context.canvas.width;
-  const height = context.canvas.height;
-
+  let { x, y, maxWidth, lineHeight, fontSize, textAlign } = params;
   context.fillStyle = color.toString();
-  context.font = "30px Lexend Mega";
-  context.textAlign = "center";
+  context.font = `${fontSize}px Lexend Mega`;
+  context.textAlign = textAlign;
 
   let words = text.split(" ");
   let line = "";
   let testLine = "";
   let lineArray = [];
-  let x = width / 2;
-  let y = height / 2;
 
   for (let n = 0; n < words.length; n++) {
     testLine += `${words[n]} `;
@@ -163,11 +165,13 @@ const ENEMY_COLOR = Color.hex("#9e95c7");
 const ENEMY_SPAWN_COOLDOWN = 1.0;
 const ENEMY_SPAWN_DISTANCE = 1500.0;
 const ENEMY_DAMAGE = PLAYER_MAX_HP / 5;
+const ENEMY_KILL_SCORE = 100;
 const PARTICLES_COUNT = 50;
 const PARTICLE_RADIUS = 10.0;
 const PARTICLE_MAG = BULLET_SPEED;
 const PARTICLE_LIFETIME = 1.0;
 const MESSAGE_COLOR = Color.hex("#ffffff");
+const LS_BEST_SCORE_KEY = "best_score";
 
 const directionMap = new Map([
   ["KeyS", new V2(0, 1.0)],
@@ -374,7 +378,7 @@ class Player {
 }
 
 class Game {
-  player = new Player(new V2(PLAYER_RADIUS + 10, PLAYER_RADIUS + 10));
+  player = new Player(new V2(PLAYER_RADIUS + 100, PLAYER_RADIUS + 100));
   mousePos = new V2(0, 0);
   pressedKeys = new Set();
   tutorial = new Tutorial();
@@ -384,6 +388,7 @@ class Game {
   enemySpawnRate = ENEMY_SPAWN_COOLDOWN;
   enemySpawnCooldown = this.enemySpawnRate;
   paused = false;
+  score = 0;
 
   update(dt) {
     if (this.paused) {
@@ -418,6 +423,22 @@ class Game {
       if (!enemy.dead) {
         for (const bullet of this.bullets) {
           if (enemy.pos.dist(bullet.pos) <= BULLET_RADIUS + ENEMY_RADIUS) {
+            this.score += ENEMY_KILL_SCORE;
+            let bestScore = localStorage.getItem(LS_BEST_SCORE_KEY);
+
+            if (bestScore) {
+              bestScore = Math.max(JSON.parse(bestScore), this.score);
+              localStorage.setItem(
+                LS_BEST_SCORE_KEY,
+                JSON.stringify(bestScore)
+              );
+            } else {
+              localStorage.setItem(
+                LS_BEST_SCORE_KEY,
+                JSON.stringify(this.score)
+              );
+            }
+
             this.player.heal(LIFE_STEAL);
             enemy.dead = true;
             bullet.lifetime = 0.0;
@@ -482,11 +503,38 @@ class Game {
     } else if (this.player.hp <= 0.0) {
       fillMessage(
         context,
-        "YOU DIED (refresh the page to restart game)",
+        "YOU DIED (refresh the page to restart game",
         MESSAGE_COLOR
       );
     } else {
       this.tutorial.render(context);
+    }
+
+    fillMessage(context, `SCORE: ${this.score}`, MESSAGE_COLOR, {
+      x: 10,
+      y: 30,
+      maxWidth: width / 2,
+      lineHeight: 1,
+      fontSize: 16,
+      textAlign: "left",
+    });
+
+    const bestScore = localStorage.getItem(LS_BEST_SCORE_KEY);
+
+    if (bestScore) {
+      fillMessage(
+        context,
+        `BEST SCORE: ${JSON.parse(bestScore)}`,
+        MESSAGE_COLOR,
+        {
+          x: 10,
+          y: 60,
+          maxWidth: width / 2,
+          lineHeight: 1,
+          fontSize: 16,
+          textAlign: "left",
+        }
+      );
     }
 
     fillRect(
