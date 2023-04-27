@@ -510,7 +510,7 @@ class Game {
     } else if (this.player.hp <= 0.0) {
       fillMessage(
         context,
-        "YOU DIED (refresh the page to restart game",
+        "YOU DIED (refresh the page to restart game)",
         MESSAGE_COLOR
       );
     } else {
@@ -582,8 +582,6 @@ class Game {
     this.pressedKeys.delete(event.code);
   }
 
-  mouseMove(event) {}
-
   mouseDown(event) {
     if (this.paused || this.player.hp <= 0.0) {
       return;
@@ -597,8 +595,7 @@ class Game {
 
 const game = new Game();
 
-(() => {
-  const canvas = document.getElementById("game");
+export const setupGame = (canvas) => {
   const context = canvas.getContext("2d");
 
   let start;
@@ -630,13 +627,10 @@ const game = new Game();
   document.addEventListener("keyup", (event) => {
     game.keyUp(event);
   });
-  document.addEventListener("mousemove", (event) => {
-    game.mouseMove(event);
-  });
   document.addEventListener("mousedown", (event) => {
     game.mouseDown(event);
   });
-  window.addEventListener("resize", (event) => {
+  window.addEventListener("resize", () => {
     windowWasResize = true;
   });
-})();
+};
