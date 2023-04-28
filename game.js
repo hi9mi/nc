@@ -168,7 +168,7 @@ const BULLET_LIFETIME = 5.0;
 const ENEMY_SPEED = PLAYER_SPEED / 3;
 const ENEMY_RADIUS = PLAYER_RADIUS;
 const ENEMY_COLOR = Color.hex("#9e95c7");
-const ENEMY_SPAWN_COOLDOWN = 1.0;
+const ENEMY_SPAWN_COOLDOWN_RANGE = [0.001, 1.0];
 const ENEMY_SPAWN_DISTANCE = 1500.0;
 const ENEMY_DAMAGE = PLAYER_MAX_HP / 5;
 const ENEMY_KILL_SCORE = 100;
@@ -392,7 +392,7 @@ class Game {
   bullets = [];
   enemies = [];
   particles = [];
-  enemySpawnRate = ENEMY_SPAWN_COOLDOWN;
+  enemySpawnRate = randomBetween(...ENEMY_SPAWN_COOLDOWN_RANGE);
   enemySpawnCooldown = this.enemySpawnRate;
   paused = false;
   score = 0;
@@ -486,7 +486,8 @@ class Game {
       if (this.enemySpawnCooldown <= 0.0) {
         this.spawnEnemy();
         this.enemySpawnCooldown = this.enemySpawnRate;
-        this.enemySpawnRate = Math.max(0.01, this.enemySpawnRate - 0.01);
+        this.enemySpawnRate =
+          randomBetween(...ENEMY_SPAWN_COOLDOWN_RANGE) - 0.01;
       }
     }
   }
